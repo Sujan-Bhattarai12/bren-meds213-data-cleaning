@@ -1,3 +1,11 @@
+
+####URL to the Repository
+```{r}
+#insert link 
+url = https://github.com/Sujan-Bhattarai12/bren-meds213-data-cleaning.git
+
+```
+
 ```{r}
 #----create a master function that cleans all columns similar way
 # load libraries
@@ -6,8 +14,8 @@ library(here)
 ```
 
 
-```{r}
-# File paths
+```{r, warning=FALSE, message=FALSE}
+# File paths as was originally set in the class
 datadir_raw <- "data/raw/"
 datadir_processed <- "data/processed/"
 species_file <- "ASDN_Daily_species.csv"
@@ -16,27 +24,24 @@ watercover_file <- "ASDN_Water_cover.csv"
 
 # Function for data cleaning
 clean_data <- function(input_file, output_file) {
-  # Import data
+  # Import data from the datadir_raw
   data <- read_csv(file.path(datadir_raw, "ASDN_Snow_survey.csv"))
-  
   # Replace problematic values
   data_fixed <- data %>%
-    #change snow cover, water cover, and land cover to numeric
-    mutate(
-      Snow_cover = case_when(
-        Snow_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
-        TRUE ~ Snow_cover
-      ),
-      Water_cover = case_when(
-        Water_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
-        TRUE ~ Water_cover
-      ),
-      Land_cover = case_when(
-        Land_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
-        TRUE ~ Land_cover
-      )
-    ) %>%
+    #change snow cover, water cover, and land cover to numeric: these 
+    #chracters could be similar in all three columns, so replace that 
+    #with chracter NA
+    mutate(Snow_cover = case_when(
+                        Snow_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,  
+                        TRUE  ~ Snow_cover),
+           Water_cover =case_when(
+                        Water_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
+                        TRUE ~ Water_cover),
+           Land_cover = case_when(Land_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
+                        TRUE ~ Land_cover)) %>%
+    #change all these columns to Numeric
     mutate_at(vars(Snow_cover,Land_cover, Water_cover), as.numeric) %>%
+    #for values greater than 100 and less than 0, replace with NA
     mutate(
       Snow_cover =  case_when(Snow_cover > 100 ~NA,
                               Snow_cover < 0~ NA, 
@@ -47,30 +52,38 @@ clean_data <- function(input_file, output_file) {
       Land_cover = case_when( Land_cover > 100 ~ NA_real_,
                               Land_cover < 0 ~ NA_real_,
                               TRUE ~ Land_cover),
-    )
-  
-  # Write cleaned data to CSV
-  write_csv(data_fixed, file.path(datadir_processed, output_file))
+ )
 }
 
-# Apply the function to the snow survey data
-clean_data(snowsurvey_file, "clean_data.csv")
+# Apply the function to the snow survey data that produces this dataset
+columns_cleaned <- clean_data(snowsurvey_file)
 
-# load the clean_data file
-snow_survey_cleaned <- read_csv(here(datadir_processed, "clean_data.csv"))
+# For total cover columns, calculate the total cover and fill in the missing values
+# based on three columns (Snow_cover, Water_cover, Land_cover) and replace it with 
+# appropriate values.
+columns_cleaned <- columns_cleaned %>%
+  mutate(Total_cover = Snow_cover + Water_cover + Land_cover) %>%
+  mutate(
+    Snow_cover = case_when(is.na(Snow_cover) & !is.na(Total_cover) & !is.na(Water_cover) & !is.na(Land_cover) ~ Total_cover - Water_cover - Land_cover,
+                           TRUE ~ Snow_cover),
+    Water_cover = case_when(is.na(Water_cover) & !is.na(Total_cover) & !is.na(Snow_cover) & !is.na(Land_cover) ~ Total_cover - Snow_cover - Land_cover,
+                            TRUE ~ Water_cover),
+    Land_cover = case_when(is.na(Land_cover) & !is.na(Total_cover) & !is.na(Snow_cover) & !is.na(Water_cover) ~ Total_cover - Snow_cover - Water_cover,
+                           TRUE ~ Land_cover)
+  )
+
+#for all columns with total cover greater than 100 in total_cover column, set it to 100
+columns_cleaned <- columns_cleaned %>%
+  mutate(Total_cover = pmin(Total_cover, 100))
+
 ```
 
 
 ```{r}
-#check for unique values in the watercolumn
-snow_survey_cleaned %>%
-  distinct(Water_cover)
+# write the final csv to as per assignment requirement
+write_csv(columns_cleaned, here(datadir_processed, all_cover_fixed_SUJAN.csv"))
+
 ```
 
 
-```{r}
-#check for unique values in the land column
-snow_survey_cleaned %>%
-  distinct(Land_cover)
-```
 
