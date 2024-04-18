@@ -30,7 +30,9 @@ clean_data <- function(input_file, output_file) {
   data_fixed <- data %>%
     #change snow cover, water cover, and land cover to numeric: these 
     #chracters could be similar in all three columns, so replace that 
-    #with chracter NA
+    #with chracter NA. These values do no carry any meaning in analysis
+    # and creates problem during anaylsis. this should be changed to NA 
+    # so that it can be treated as missing values
     mutate(Snow_cover = case_when(
                         Snow_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,  
                         TRUE  ~ Snow_cover),
@@ -39,9 +41,13 @@ clean_data <- function(input_file, output_file) {
                         TRUE ~ Water_cover),
            Land_cover = case_when(Land_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
                         TRUE ~ Land_cover)) %>%
-    #change all these columns to Numeric
+    #change all these columns to Numeric, for any quantitative analysis
     mutate_at(vars(Snow_cover,Land_cover, Water_cover), as.numeric) %>%
-    #for values greater than 100 and less than 0, replace with NA
+    #for values greater than 100 and less than 0, replace with NA. 
+    #These values are not possible in the context of the data and 
+    #what we know about percentage. Alternatively these values can
+    #replaced with NA, but it is better to replace 100 if it is than
+    #100, and 0 if it is less than 0, then 0 to reduce data loss.
     mutate(
       Snow_cover =  case_when(Snow_cover > 100 ~NA,
                               Snow_cover < 0~ NA, 
@@ -55,12 +61,15 @@ clean_data <- function(input_file, output_file) {
  )
 }
 
-# Apply the function to the snow survey data that produces this dataset
+# Apply the function to the snow survey data that produces this clened dataset
 columns_cleaned <- clean_data(snowsurvey_file)
 
 # For total cover columns, calculate the total cover and fill in the missing values
 # based on three columns (Snow_cover, Water_cover, Land_cover) and replace it with 
-# appropriate values.
+# appropriate values. For this part, I will use case_when function to replace the
+# missing values in the Total_cover column with either sum or individual values available 
+# from the three columns.
+
 columns_cleaned <- columns_cleaned %>%
   mutate(Total_cover = Snow_cover + Water_cover + Land_cover) %>%
   mutate(
@@ -73,6 +82,9 @@ columns_cleaned <- columns_cleaned %>%
   )
 
 #for all columns with total cover greater than 100 in total_cover column, set it to 100
+#the total cover column was not cleaned earlier, so all values greater than 100 should be
+#set to 100. This is done using pmin function in R. This caps the value to 100 if any value
+#is greater than 100.
 columns_cleaned <- columns_cleaned %>%
   mutate(Total_cover = pmin(Total_cover, 100))
 
@@ -81,7 +93,7 @@ columns_cleaned <- columns_cleaned %>%
 
 ```{r}
 # write the final csv to as per assignment requirement
-write_csv(columns_cleaned, here(datadir_processed, all_cover_fixed_SUJAN.csv"))
+write_csv(columns_cleaned, here(datadir_processed, "all_cover_fixed_SUJAN.csv"))
 
 ```
 
