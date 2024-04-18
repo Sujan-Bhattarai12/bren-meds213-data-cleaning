@@ -1,0 +1,76 @@
+```{r}
+#----create a master function that cleans all columns similar way
+# load libraries
+library(tidyverse)
+library(here)
+```
+
+
+```{r}
+# File paths
+datadir_raw <- "data/raw/"
+datadir_processed <- "data/processed/"
+species_file <- "ASDN_Daily_species.csv"
+snowsurvey_file <- "ASDN_Snow_survey.csv"
+watercover_file <- "ASDN_Water_cover.csv"
+
+# Function for data cleaning
+clean_data <- function(input_file, output_file) {
+  # Import data
+  data <- read_csv(file.path(datadir_raw, "ASDN_Snow_survey.csv"))
+  
+  # Replace problematic values
+  data_fixed <- data %>%
+    #change snow cover, water cover, and land cover to numeric
+    mutate(
+      Snow_cover = case_when(
+        Snow_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
+        TRUE ~ Snow_cover
+      ),
+      Water_cover = case_when(
+        Water_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
+        TRUE ~ Water_cover
+      ),
+      Land_cover = case_when(
+        Land_cover %in% c(".", "-", "n/a", "unk") ~ NA_character_,
+        TRUE ~ Land_cover
+      )
+    ) %>%
+    mutate_at(vars(Snow_cover,Land_cover, Water_cover), as.numeric) %>%
+    mutate(
+      Snow_cover =  case_when(Snow_cover > 100 ~NA,
+                              Snow_cover < 0~ NA, 
+                              TRUE ~Snow_cover),
+      Water_cover = case_when(Water_cover > 100 ~NA,
+                              Water_cover < 0~ NA, 
+                              TRUE ~Water_cover),
+      Land_cover = case_when( Land_cover > 100 ~ NA_real_,
+                              Land_cover < 0 ~ NA_real_,
+                              TRUE ~ Land_cover),
+    )
+  
+  # Write cleaned data to CSV
+  write_csv(data_fixed, file.path(datadir_processed, output_file))
+}
+
+# Apply the function to the snow survey data
+clean_data(snowsurvey_file, "clean_data.csv")
+
+# load the clean_data file
+snow_survey_cleaned <- read_csv(here(datadir_processed, "clean_data.csv"))
+```
+
+
+```{r}
+#check for unique values in the watercolumn
+snow_survey_cleaned %>%
+  distinct(Water_cover)
+```
+
+
+```{r}
+#check for unique values in the land column
+snow_survey_cleaned %>%
+  distinct(Land_cover)
+```
+
